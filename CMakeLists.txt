@@ -277,6 +277,36 @@ else()
 endif()
 
 #
+# _phi_C extension
+# includes:
+#   * FP16xFP8 kernel: GEMM or Group GEMM
+#   * Utilities: modified from vllm moe
+#
+
+set(VLLM_PHI_EXT_SRC
+  "csrc/phi/cuda_kernels/moe_align_block_size_kernels.cu",
+  "csrc/phi/tensorrtllm_moe_kernels/fp16_int8_gemm_fg_scaleonly.cu",
+  "csrc/phi/tensorrtllm_moe_kernels/fused_moe_gemm_launcher_sm80.cu",
+  "csrc/phi/tensorrtllm_moe_kernels/cutlass_heuristic.cpp",
+  "csrc/phi/tensorrtllm_moe_kernels/cutlass_preprocessors.cpp",
+  "csrc/phi/tensorrtllm_moe_kernels/moe_gemm_kernels_fp16_uint8.cu",
+  "csrc/phi/tensorrtllm_moe_kernels/th_moe_ops.cc",
+  "csrc/phi/tensorrtllm_moe_kernels/tllmException.cpp",
+  "csrc/phi/tensorrtllm_moe_kernels/logger.cpp",
+  "csrc/phi/tensorrtllm_moe_kernels/stringUtils.cpp",
+)
+
+define_gpu_extension_target(
+  _phi_C
+  DESTINATION vllm
+  LANGUAGE ${VLLM_GPU_LANG}
+  SOURCES ${VLLM_PHI_EXT_SRC}
+  COMPILE_FLAGS ${VLLM_GPU_FLAGS}
+  ARCHITECTURES ${VLLM_GPU_ARCHES}
+  USE_SABI 3
+  WITH_SOABI)
+
+#
 # Add the `default` target which detects which extensions should be
 # built based on platform/architecture.  This is the same logic that
 # setup.py uses to select which extensions should be built and should
@@ -305,5 +335,9 @@ if(VLLM_GPU_LANG STREQUAL "CUDA" OR VLLM_GPU_LANG STREQUAL "HIP")
       (ENV{VLLM_INSTALL_PUNICA_KERNELS} OR VLLM_INSTALL_PUNICA_KERNELS))
     message(STATUS "Enabling punica extension.")
     add_dependencies(default _punica_C)
+  endif()
+
+  if (${VLLM_GPU_LANG} STREQUAL "CUDA")
+    add_dependencies(default _phi_C)
   endif()
 endif()
